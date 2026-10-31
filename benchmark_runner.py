@@ -144,6 +144,9 @@ def run_worker(worker_id, engine, uri, query_id, pipeline, pg_settings, pg_state
 
             elapsed_ms = (time.perf_counter() - query_started) * 1000
             if is_measuring:
+                if time.monotonic() > measure_deadline:
+                    worker_status = "error"
+                    break
                 latencies.append(elapsed_ms)
                 completed += 1
 
@@ -272,6 +275,22 @@ def postgresql_disk_spill(service, pids, start_epoch):
     return any(temp_pattern.search(line) for line in relevant_lines)
 
 
+def stop_workers(workers, grace_seconds):
+    deadline = time.monotonic() + grace_seconds
+    for worker in workers:
+        worker.join(timeout=max(0, deadline - time.monotonic()))
+
+    forced = [worker for worker in workers if worker.is_alive()]
+    for worker in forced:
+        worker.terminate()
+
+    termination_deadline = time.monotonic() + 1
+    for worker in forced:
+        worker.join(timeout=max(0, termination_deadline - time.monotonic()))
+
+    return bool(forced), any(worker.is_alive() for worker in forced)
+
+
 def append_row(path, row):
     path.parent.mkdir(parents=True, exist_ok=True)
     needs_header = not path.exists() or path.stat().st_size == 0
@@ -314,6 +333,7 @@ def run_repetition(args, run_number, invocation_id, pipeline, pg_settings, pg_st
             target=run_worker,
             args=(worker_id, args.engine, uri, args.query, pipeline, pg_settings, pg_statement,
                   marker, start_event, measuring_event, stop_event, deadline, events),
+            daemon=True,
         )
         for worker_id in range(args.concurrency)
     ]
@@ -324,19 +344,17 @@ def run_repetition(args, run_number, invocation_id, pipeline, pg_settings, pg_st
     try:
         ready = wait_for_ready(events, workers)
     except Exception:
-        for worker in workers:
-            if worker.is_alive():
-                worker.terminate()
-            worker.join()
-        return failed_row(args, run_number, "error", started_at), None, None
+        stop_event.set()
+        start_event.set()
+        _, unreaped = stop_workers(workers, COOLDOWN_SECONDS)
+        return failed_row(args, run_number, "error", started_at), None, None, unreaped
 
     startup_errors = [reply[2] for reply in ready if reply[2] != "ok"]
     if startup_errors:
         stop_event.set()
         start_event.set()
-        for worker in workers:
-            worker.join()
-        return failed_row(args, run_number, "oom" if "oom" in startup_errors else "error", started_at), None, None
+        _, unreaped = stop_workers(workers, COOLDOWN_SECONDS)
+        return failed_row(args, run_number, "oom" if "oom" in startup_errors else "error", started_at), None, None, unreaped
 
     backend_pids = {reply[3] for reply in ready if reply[3] is not None}
     start_event.set()
@@ -347,8 +365,7 @@ def run_repetition(args, run_number, invocation_id, pipeline, pg_settings, pg_st
     measuring_event.set()
     time.sleep(MEASURE_SECONDS)
     stop_event.set()
-    for worker in workers:
-        worker.join()
+    forced_shutdown, unreaped = stop_workers(workers, COOLDOWN_SECONDS)
     measure_ended = measure_started + MEASURE_SECONDS
     time.sleep(COOLDOWN_SECONDS)
 
@@ -361,6 +378,8 @@ def run_repetition(args, run_number, invocation_id, pipeline, pg_settings, pg_st
     completed = sum(result[2] for result in results)
     latencies = [latency for result in results for latency in result[3]]
     worker_statuses = [result[4] for result in results]
+    if forced_shutdown or unreaped:
+        worker_statuses.append("error")
     status = "oom" if "oom" in worker_statuses else ("error" if "error" in worker_statuses else "ok")
 
     cpu, rss = read_telemetry(prometheus_url, args.engine, args.profile, measure_started)
@@ -386,7 +405,7 @@ def run_repetition(args, run_number, invocation_id, pipeline, pg_settings, pg_st
         "disk_spill": "" if spill is None else str(spill).lower(),
         "status": status,
     }
-    return row, measure_started, measure_ended
+    return row, measure_started, measure_ended, unreaped
 
 
 def main():
@@ -399,11 +418,13 @@ def main():
     prometheus_url = os.environ.get("PROMETHEUS_URL", "http://127.0.0.1:9090")
     invocation_id = uuid.uuid4().hex
     for run_number in range(1, REPETITIONS + 1):
-        row, _, _ = run_repetition(
+        row, _, _, unreaped = run_repetition(
             args, run_number, invocation_id, pipeline, pg_settings, pg_statement, uri, prometheus_url,
         )
         append_row(args.csv, row)
         print(f"{args.engine} {args.profile} {args.query} concurrency={args.concurrency} run={run_number}: {row['status']}")
+        if unreaped:
+            raise SystemExit("A benchmark worker remained alive after termination; stopping this scenario.")
 
 
 if __name__ == "__main__":
