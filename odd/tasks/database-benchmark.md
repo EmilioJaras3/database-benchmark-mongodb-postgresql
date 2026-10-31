@@ -213,9 +213,19 @@ Phase 1 is documentation and decision closure only. Phase 2 builds one logical d
 - T3.3 — S1-S4; route: delegated (prompt-pipeline skill); status: complete (static and independent review passed; native assessment: medium/under_budget, no review due yet); commit: `6302768` (`queries/`; `queries/ (agregaciones MongoDB y SQL PostgreSQL)`).
 - T3.4 — S1-S4; route: inline corrections; status: complete (AST and whitespace checks passed; focused static checks and reviewer recheck passed; no runtime/cache/database test was run); commits: `d39265b`, `901f13e`, `fd50db9`, `3dc5c58`, `1000736` (one scenario per invocation; `run_benchmarks.sh` will switch profiles serially; data provisioning remains manual; caller-supplied CSV path required; manual flush prompt before every repetition; RDD disabled/unmanaged by user authorization).
 - T3.5 — S1-S4; route: delegated (prompt-pipeline skill); status: complete (`bash -n`, diff check, and focused independent static verification passed; no script/service/benchmark was run); commit: `ac3dabc` (`run_benchmarks.sh` switches Compose profiles serially; data provisioning remains manual; caller-supplied CSV path required; manual cache flush remains in T3.4; RDD disabled/unmanaged by user authorization). Risk: item 5 (environment/deployment automation).
-- T3.6 — S1-S4; route: delegated (prompt-pipeline skill); status: complete (AST/readback and independent static verification passed; no real CSV or checker execution was available/authorized); commit pending (`check_spec.py` requires exactly 108 unique rows covering all matrix/repetition keys; it validates but never alters CSV data). Risk: item 6 (no runnable behavioral test under current restrictions).
+- T3.6 — S1-S4; route: delegated (prompt-pipeline skill); status: complete (AST/readback and independent static verification passed; no real CSV or checker execution was available/authorized); commit: `69ed566` (`check_spec.py` requires exactly 108 unique rows covering all matrix/repetition keys; it validates but never alters CSV data). Risk: item 6 (no runnable behavioral test under current restrictions).
 - T4 — S1-S4; route: inline; status: pending (Phase 3 pilot, user-run).
 - T5 — S1-S4; route: inline; status: pending (Phase 4 real-data report).
+
+### Planned feature-branch chain slices
+
+- Tracker PR: draft/no-merge; not created (remote authorization pending).
+- PR1, T3.1-T3.2: `06bb4e3`, `5094742`, `979f89d`, `4c2910f`; child of tracker.
+- PR2, T3.3: `6302768`, `f921e82`; child of PR1.
+- PR3, T3.4: `d39265b`, `901f13e`, `fd50db9`, `3dc5c58`, `1000736`; child of PR2; approved `size:exception` applies to this cohesive runner slice.
+- PR4, T3.5: `ac3dabc`, `683085b`; child of PR3.
+- PR5, T3.6: `69ed566` plus final task-record commit pending; child of PR4.
+- No PR or push has been performed; destination/credential authorization remains outstanding.
 
 ## Log
 
@@ -269,3 +279,4 @@ Phase 1 is documentation and decision closure only. Phase 2 builds one logical d
 - L48 (2026-10-31): T3.6 is the next authorized Phase 2 work unit. `check_spec.py` must validate only real CSV input and never create/fabricate rows or metrics; no benchmark or database execution is authorized.
 - L49 (2026-10-31): The user answered “es mejor las 108 filas” to the completeness decision. `check_spec.py` must require all 108 matrix/repetition rows, with unique keys; no partial CSV passes.
 - L50 (2026-10-31): T3.6 checker requires the exact CSV schema, all 108 unique matrix/repetition keys, valid statuses and metric consistency, and read-only file handling. AST parsing, source readback, and independent static verification passed. No real CSV was supplied and the checker was not executed; no results were fabricated. Risk: item 6. RDD remains disabled/unmanaged by user authorization; Engram mirror pending.
+- L51 (2026-10-31): T3.6 completed in commit `69ed566` (`feat: validate complete benchmark results CSV`). The feature-branch chain plan records five child slices; no remote operation was performed because destination/credential authorization is unresolved. Phase 2 is complete; Phase 3 requires user approval.
