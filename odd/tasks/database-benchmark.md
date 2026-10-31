@@ -210,7 +210,7 @@ Phase 1 is documentation and decision closure only. Phase 2 builds one logical d
 - T2 — S2-S4; route: inline; status: complete (Phase 1 contract and decisions closed).
 - T3.1 — S1-S4; route: delegated (prompt-pipeline skill); status: complete (static and independent verification passed; native review acknowledged with non-blocking advisory R3-001); commit: `06bb4e3` (`docker-compose.yml`; user approved cAdvisor Docker socket with read-only host mounts, no `privileged: true`).
 - T3.2 — S1-S4; route: delegated (prompt-pipeline skill); status: complete (static checks and focused independent review passed; native review acknowledged with informational advisory R3-001); commit: `979f89d` (`synthetic_data_generator.py`; `synthetic_data_generator.py (con parámetro de tamaño para pruebas de 5 000)`).
-- T3.3 — S1-S4; route: delegated (prompt-pipeline skill); status: static and independent review passed; native RDD assessment pending; commit: pending (`queries/`; `queries/ (agregaciones MongoDB y SQL PostgreSQL)`).
+- T3.3 — S1-S4; route: delegated (prompt-pipeline skill); status: complete (static and independent review passed; native assessment: medium/under_budget, no review due yet); commit: `6302768` (`queries/`; `queries/ (agregaciones MongoDB y SQL PostgreSQL)`).
 - T3.4 — S1-S4; route: pending (Python multiprocess runner).
 - T3.5 — S1-S4; route: pending (`run_benchmarks.sh`).
 - T3.6 — S1-S4; route: pending (`check_spec.py`).
@@ -251,3 +251,4 @@ Phase 1 is documentation and decision closure only. Phase 2 builds one logical d
 - L30 (2026-10-31): T3.2 commit `979f89d` received native RDD acknowledgement. Advisory R3-001 is informational: a failed generation after exclusive file creation could leave a partial JSON file that blocks retry. No correction was opened; do not re-review this acknowledged candidate. The generator remains unexecuted.
 - L31 (2026-10-31): T3.3 is the next authorized Phase 2 work unit. Preserve the playbook queries exactly except the user-approved `payment.totals.total` Q2 path and the approved MongoDB `allowDiskUse: false` / PostgreSQL `work_mem = '4MB'` settings. No database execution or smoke test is authorized.
 - L32 (2026-10-31): Four query artifacts were added under `queries/`; static comparison and fresh independent review passed. Q1 logic matches S1, and Q2 contains only the approved field-path and strict-memory settings. No query or database service was executed.
+- L33 (2026-10-31): T3.3 commit `6302768` was assessed as medium risk with `review_due: false` / `under_budget`; it remains in the open review slice. No query was executed.
