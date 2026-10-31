@@ -1,7 +1,7 @@
 # Database benchmark implementation
 
 Objective: Deliver the benchmark practice in authorized phases, treating the playbook as fixed specification.  
-Branch: `feature/database-benchmark` · Delivery strategy: `ask-on-risk` · Test runner: TBD (no code/tests in Phase 1).
+Branch: `feature/database-benchmark` · Delivery strategy: `ask-on-risk` · Chain strategy: `feature-branch-chain` · Test runner: TBD (no code/tests in Phase 1).
 
 ## Specs
 
@@ -211,7 +211,7 @@ Phase 1 is documentation and decision closure only. Phase 2 builds one logical d
 - T3.1 — S1-S4; route: delegated (prompt-pipeline skill); status: complete (static and independent verification passed; native review acknowledged with non-blocking advisory R3-001); commit: `06bb4e3` (`docker-compose.yml`; user approved cAdvisor Docker socket with read-only host mounts, no `privileged: true`).
 - T3.2 — S1-S4; route: delegated (prompt-pipeline skill); status: complete (static checks and focused independent review passed; native review acknowledged with informational advisory R3-001); commit: `979f89d` (`synthetic_data_generator.py`; `synthetic_data_generator.py (con parámetro de tamaño para pruebas de 5 000)`).
 - T3.3 — S1-S4; route: delegated (prompt-pipeline skill); status: complete (static and independent review passed; native assessment: medium/under_budget, no review due yet); commit: `6302768` (`queries/`; `queries/ (agregaciones MongoDB y SQL PostgreSQL)`).
-- T3.4 — S1-S4; route: pending (Python multiprocess runner).
+- T3.4 — S1-S4; route: delegated (prompt-pipeline skill); status: in progress (one scenario per invocation; `run_benchmarks.sh` will switch profiles serially; data provisioning remains manual; caller-supplied CSV output path required).
 - T3.5 — S1-S4; route: pending (`run_benchmarks.sh`).
 - T3.6 — S1-S4; route: pending (`check_spec.py`).
 - T4 — S1-S4; route: inline; status: pending (Phase 3 pilot, user-run).
@@ -252,3 +252,8 @@ Phase 1 is documentation and decision closure only. Phase 2 builds one logical d
 - L31 (2026-10-31): T3.3 is the next authorized Phase 2 work unit. Preserve the playbook queries exactly except the user-approved `payment.totals.total` Q2 path and the approved MongoDB `allowDiskUse: false` / PostgreSQL `work_mem = '4MB'` settings. No database execution or smoke test is authorized.
 - L32 (2026-10-31): Four query artifacts were added under `queries/`; static comparison and fresh independent review passed. Q1 logic matches S1, and Q2 contains only the approved field-path and strict-memory settings. No query or database service was executed.
 - L33 (2026-10-31): T3.3 commit `6302768` was assessed as medium risk with `review_due: false` / `under_budget`; it remains in the open review slice. No query was executed.
+- L34 (2026-10-31): The user confirmed “si” to preserve 36 cells with MongoDB `allowDiskUse: false` and PostgreSQL `work_mem = '4MB'`; the session-document alternatives `true` and `64MB` are not matrix scenarios. The runner must require a caller-supplied CSV output path. No benchmark or database execution is authorized.
+- L35 (2026-10-31): The user confirmed “si” that T3.4 handles one scenario per invocation, T3.5 will switch Compose profiles serially, and data provisioning remains manual. No services or databases may be started or used in this task.
+- L36 (2026-10-31): The user authorized `pymongo` and `psycopg` as explicit dependencies, without version pins or extras.
+- L37 (2026-10-31): The user chose `feature-branch-chain` for delivery after the feature exceeded the ~400-line review budget.
+- L38 (2026-10-31): The user approved a `size:exception` for the cohesive T3.4 runner slice, which is approximately 410 authored lines.
