@@ -208,7 +208,7 @@ Phase 1 is documentation and decision closure only. Phase 2 builds one logical d
 
 - T1 — S1-S3; route: inline; status: complete; commit: pending phase closure.
 - T2 — S2-S4; route: inline; status: complete (Phase 1 contract and decisions closed).
-- T3.1 — S1-S4; route: delegated (prompt-pipeline skill); status: in progress (`docker-compose.yml`; user approved cAdvisor Docker socket with read-only host mounts, no `privileged: true`).
+- T3.1 — S1-S4; route: delegated (prompt-pipeline skill); status: implemented and independently statically verified; native RDD review unavailable (`docker-compose.yml`; user approved cAdvisor Docker socket with read-only host mounts, no `privileged: true`); commit: pending.
 - T3.2 — S1-S4; route: pending (`synthetic_data_generator.py`).
 - T3.3 — S1-S4; route: pending (`queries/`).
 - T3.4 — S1-S4; route: pending (Python multiprocess runner).
@@ -244,3 +244,4 @@ Phase 1 is documentation and decision closure only. Phase 2 builds one logical d
 - L23 (2026-10-31): The user approved current `linux/amd64` monitoring images: `ghcr.io/google/cadvisor:v0.60.6@sha256:bd7c00644d65e6c9fc2c151cab70d2e86d7fe3e0182cfb9863120ec2e017cf01`, `prom/prometheus:v3.15.1@sha256:d445d1806b38f85b5c394a1b87f94113fde0473b45245922c2e8b1bd41fa68ae`, and `prom/node-exporter:v1.12.1@sha256:da83fae85603c4e47e6c68369a7d746e2dda683dc35ea2e234b4f171e0d92798`. Verify availability in WSL2 before using them for measurement.
 - L24 (2026-10-31): cAdvisor's official Docker setup mounts host paths and Docker's daemon socket. Docker documentation warns that access to that socket grants root-level privileges. Await explicit user authorization before adding the socket mount; avoid `privileged: true` unless a later verified requirement makes it necessary.
 - L25 (2026-10-31): The user authorized the Docker socket and required host paths in read-only mode for cAdvisor, without `privileged: true`. Do not start services or run a smoke test without separate approval for that session.
+- L26 (2026-10-31): T3.1 implemented `docker-compose.yml`; `docker compose config -q` passed with a harmless process-environment password placeholder, and an independent isolated static review found no blockers. No services were started. Native RDD assessment could not run because the available `gentle-ai` CLI is v1.25.6 and exposes neither `review` nor `doctor`; the candidate remains pending its native review/status path.
