@@ -306,6 +306,18 @@ def append_row(path, row):
         writer.writerow(row)
 
 
+def wait_for_manual_cache_flush(run_number):
+    message = (
+        f"Before repetition {run_number}/{REPETITIONS}, manually flush the cache "
+        "according to the playbook, then press Enter to continue. "
+        "The runner will not execute the flush command. "
+    )
+    try:
+        input(message)
+    except EOFError as exc:
+        raise SystemExit("An interactive terminal is required for manual cache flushing.") from exc
+
+
 def metric_text(value, digits=6):
     return "" if value is None else f"{value:.{digits}f}"
 
@@ -418,6 +430,7 @@ def main():
     prometheus_url = os.environ.get("PROMETHEUS_URL", "http://127.0.0.1:9090")
     invocation_id = uuid.uuid4().hex
     for run_number in range(1, REPETITIONS + 1):
+        wait_for_manual_cache_flush(run_number)
         row, _, _, unreaped = run_repetition(
             args, run_number, invocation_id, pipeline, pg_settings, pg_statement, uri, prometheus_url,
         )
