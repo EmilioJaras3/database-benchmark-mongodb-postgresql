@@ -209,7 +209,7 @@ Phase 1 is documentation and decision closure only. Phase 2 builds one logical d
 - T1 — S1-S3; route: inline; status: complete; commit: pending phase closure.
 - T2 — S2-S4; route: inline; status: complete (Phase 1 contract and decisions closed).
 - T3.1 — S1-S4; route: delegated (prompt-pipeline skill); status: complete (static and independent verification passed; native review acknowledged with non-blocking advisory R3-001); commit: `06bb4e3` (`docker-compose.yml`; user approved cAdvisor Docker socket with read-only host mounts, no `privileged: true`).
-- T3.2 — S1-S4; route: pending (`synthetic_data_generator.py`).
+- T3.2 — S1-S4; route: delegated (prompt-pipeline skill); status: implemented; static checks and focused independent review passed; native RDD review required (assessment: high); commit: pending (`synthetic_data_generator.py`; `synthetic_data_generator.py (con parámetro de tamaño para pruebas de 5 000)`).
 - T3.3 — S1-S4; route: pending (`queries/`).
 - T3.4 — S1-S4; route: pending (Python multiprocess runner).
 - T3.5 — S1-S4; route: pending (`run_benchmarks.sh`).
@@ -246,3 +246,5 @@ Phase 1 is documentation and decision closure only. Phase 2 builds one logical d
 - L25 (2026-10-31): The user authorized the Docker socket and required host paths in read-only mode for cAdvisor, without `privileged: true`. Do not start services or run a smoke test without separate approval for that session.
 - L26 (2026-10-31): T3.1 implemented `docker-compose.yml`; `docker compose config -q` passed with a harmless process-environment password placeholder, and an independent isolated static review found no blockers. No services were started. The initial native RDD attempt was blocked because the PATH-selected `gentle-ai` v1.25.6 lacked `review` and `doctor`; see L27 for resolution.
 - L27 (2026-10-31): The user approved prioritizing `C:\Users\jaras\go\bin` in user PATH while retaining both Gentle AI installations. New-process resolution now selects v4.3.1; `gentle-ai doctor` still warns that duplicate binaries remain. T3.1 native review was acknowledged; advisory R3-001 notes that a read-only Docker socket mount does not restrict Docker API operations.
+- L28 (2026-10-31): The user answered “si” to the recommendation to include `subtotal`, `discount`, `tax`, and `total` under `payment.totals`, with `total = subtotal - discount + tax`. This closes the totals-key decision for T3.2.
+- L29 (2026-10-31): T3.2 now streams a single JSON array to the fixed ignored path `dataset/orders.json`, defaults to 500,000 records, and accepts `--count`/`--size`. Python AST and help checks passed; the generator was not run and no dataset or smoke test was created. A focused independent review passed after one correction batch. Native RDD assessment is high and candidate consent remains pending.
