@@ -1,0 +1,3 @@
+operationProfiling:
+  mode: off
+  filter: '{ "command.comment": { "$regex": "^bench-" } }'

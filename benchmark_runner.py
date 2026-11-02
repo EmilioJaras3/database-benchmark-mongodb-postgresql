@@ -17,6 +17,9 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
+
+import check_spec
 
 
 ROOT = Path(__file__).resolve().parent
@@ -45,10 +48,29 @@ def parse_args():
     parser.add_argument("--profile", required=True, choices=tuple(PROFILES))
     parser.add_argument("--query", required=True, choices=("Q1", "Q2"))
     parser.add_argument("--concurrency", required=True, type=int, choices=CONCURRENCIES)
+    parser.add_argument(
+        "--resume", action="store_true",
+        help="validate an existing partial CSV and skip matrix/repetition keys already recorded",
+    )
     args = parser.parse_args()
-    if args.engine == "postgresql" and not os.environ.get("POSTGRES_DSN"):
-        parser.error("POSTGRES_DSN must be set in the process environment")
+    if args.engine == "postgresql" and postgres_dsn_from_env() is None:
+        parser.error("Set POSTGRES_DSN or POSTGRES_PASSWORD in the process environment")
     return args
+
+
+def postgres_dsn_from_env(environ=None):
+    """Return an explicit PostgreSQL DSN or build the benchmark-local default."""
+    environment = os.environ if environ is None else environ
+    explicit_dsn = environment.get("POSTGRES_DSN")
+    if explicit_dsn:
+        return explicit_dsn
+
+    password = environment.get("POSTGRES_PASSWORD")
+    if not password:
+        return None
+
+    encoded_password = quote(password, safe="")
+    return f"postgresql://postgres:{encoded_password}@127.0.0.1:5434/postgres"
 
 
 def read_mongodb_pipeline(query_id):
@@ -120,6 +142,9 @@ def run_worker(worker_id, engine, uri, query_id, pipeline, pg_settings, pg_state
         latencies = []
         completed = 0
         worker_status = "ok"
+        reason_code = ""
+        measured_query_ids = []
+        query_number = 0
         while not stop_event.is_set():
             is_measuring = measuring_event.is_set()
             if is_measuring:
@@ -132,6 +157,11 @@ def run_worker(worker_id, engine, uri, query_id, pipeline, pg_settings, pg_state
             try:
                 if engine == "mongodb":
                     options = {"comment": marker}
+                    if is_measuring:
+                        query_number += 1
+                        measured_comment_id = f"{marker}-{worker_id}-{query_number}"
+                        measured_query_ids.append(measured_comment_id)
+                        options["comment"] = measured_comment_id
                     if query_id == "Q2":
                         options["allowDiskUse"] = False
                     list(collection.aggregate(pipeline, **options))
@@ -140,19 +170,23 @@ def run_worker(worker_id, engine, uri, query_id, pipeline, pg_settings, pg_state
                     cursor.fetchall()
             except Exception as exc:
                 worker_status = classify_error(exc)
+                if worker_status == "error":
+                    reason_code = "worker_query_failed"
                 break
 
             elapsed_ms = (time.perf_counter() - query_started) * 1000
             if is_measuring:
                 if time.monotonic() > measure_deadline:
-                    worker_status = "error"
                     break
                 latencies.append(elapsed_ms)
                 completed += 1
 
-        events.put(("result", worker_id, completed, latencies, worker_status, backend_pid))
+        events.put(("result", worker_id, completed, latencies, worker_status, backend_pid,
+                    reason_code, measured_query_ids))
     except Exception as exc:
-        events.put(("ready", worker_id, classify_error(exc), backend_pid))
+        worker_status = classify_error(exc)
+        reason_code = "worker_startup_failed" if worker_status == "error" else ""
+        events.put(("ready", worker_id, worker_status, backend_pid, reason_code))
     finally:
         if client is not None:
             client.close()
@@ -167,8 +201,29 @@ def wait_for_ready(events, workers, timeout=30):
     return replies
 
 
-def query_prometheus_range(prometheus_url, metric, service, start_epoch, end_epoch):
-    selector = f'{metric}{{container_label_com_docker_compose_service="{service}"}}'
+def resolve_compose_container_id(service):
+    """Return the full ID for exactly one Compose service container, or None."""
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "ps", "--quiet", service],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    container_ids = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+    if len(container_ids) != 1 or not re.fullmatch(r"[0-9a-f]{64}", container_ids[0]):
+        return None
+    return container_ids[0]
+
+
+def query_prometheus_range(prometheus_url, metric, container_id, start_epoch, end_epoch):
+    selector = f'{metric}{{id="/docker/{container_id}"}}'
     params = urllib.parse.urlencode(
         {"query": selector, "start": start_epoch, "end": end_epoch, "step": "1s"}
     )
@@ -180,13 +235,17 @@ def query_prometheus_range(prometheus_url, metric, service, start_epoch, end_epo
         payload = json.loads(response.read().decode("utf-8"))
     if payload.get("status") != "success":
         raise RuntimeError("Prometheus query failed")
-    by_timestamp = {}
-    for series in payload.get("data", {}).get("result", []):
-        for timestamp, value in series.get("values", []):
-            number = float(value)
-            if math.isfinite(number):
-                by_timestamp[timestamp] = by_timestamp.get(timestamp, 0.0) + number
-    return sorted(by_timestamp.items())
+    series = payload.get("data", {}).get("result", [])
+    if not series:
+        return []
+    if len(series) != 1 or series[0].get("metric", {}).get("id") != f"/docker/{container_id}":
+        raise RuntimeError("Prometheus returned an ambiguous or mismatched container series")
+    samples = []
+    for timestamp, value in series[0].get("values", []):
+        number = float(value)
+        if math.isfinite(number):
+            samples.append((timestamp, number))
+    return samples
 
 
 def read_telemetry(prometheus_url, engine, profile, start_epoch):
@@ -196,9 +255,12 @@ def read_telemetry(prometheus_url, engine, profile, start_epoch):
     end_epoch = start_epoch + MEASURE_SECONDS
     cpu = None
     rss = None
+    container_id = resolve_compose_container_id(service)
+    if container_id is None:
+        return None, None
     try:
         cpu_samples = query_prometheus_range(
-            prometheus_url, "container_cpu_cfs_throttled_seconds_total", service,
+            prometheus_url, "container_cpu_cfs_throttled_seconds_total", container_id,
             start_epoch, end_epoch,
         )
         if len(cpu_samples) >= 2:
@@ -206,7 +268,7 @@ def read_telemetry(prometheus_url, engine, profile, start_epoch):
             if delta >= 0:
                 cpu = delta
         rss_samples = query_prometheus_range(
-            prometheus_url, "container_memory_rss_bytes", service, start_epoch, end_epoch,
+            prometheus_url, "container_memory_rss", container_id, start_epoch, end_epoch,
         )
         if rss_samples:
             rss = max(value for _, value in rss_samples) / (1024 * 1024)
@@ -226,25 +288,70 @@ def nested_key(value, key):
             yield from nested_key(nested, key)
 
 
-def mongodb_disk_spill(uri, marker):
-    try:
-        from pymongo import MongoClient
+def nested_values(value, key):
+    if isinstance(value, dict):
+        if key in value:
+            yield value[key]
+        for nested in value.values():
+            yield from nested_values(nested, key)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from nested_values(nested, key)
 
-        with MongoClient(uri, appname="database-benchmark", connectTimeoutMS=10_000) as client:
-            lines = client.admin.command({"getLog": "global"}).get("log", [])
-        found = []
-        for line in lines:
-            if marker not in line:
+
+def mongodb_disk_spill(service, expected_query_ids, start_epoch):
+    expected = set(expected_query_ids)
+    if not expected:
+        return None
+    since = datetime.fromtimestamp(start_epoch, timezone.utc).isoformat()
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "logs", "--no-color", "--since", since, service],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        malformed_match = False
+        completed = set()
+        positive_spill = False
+        for line in (result.stdout or "").splitlines():
+            if not any(query_id in line for query_id in expected):
+                continue
+            json_start = line.find("{")
+            if json_start < 0:
+                malformed_match = True
                 continue
             try:
-                entry = json.loads(line)
+                entry = json.loads(line[json_start:])
             except (TypeError, json.JSONDecodeError):
+                malformed_match = True
                 continue
-            found.extend(nested_key(entry, "usedDisk"))
-        if not found:
+            if not isinstance(entry, dict):
+                malformed_match = True
+                continue
+            comments = (comment for comment in nested_values(entry, "comment")
+                       if isinstance(comment, str))
+            matching_ids = expected.intersection(comments)
+            if not matching_ids:
+                continue
+            if entry.get("msg") != "Slow query":
+                continue
+            completed.update(matching_ids)
+            positive_spill = positive_spill or any(
+                value is True for value in nested_key(entry, "usedDisk")
+            )
+        if malformed_match:
             return None
-        return any(found)
-    except Exception:
+        if positive_spill:
+            return True
+        if expected.issubset(completed):
+            return False
+        return None
+    except (OSError, subprocess.SubprocessError, ValueError):
         return None
 
 
@@ -306,16 +413,28 @@ def append_row(path, row):
         writer.writerow(row)
 
 
-def wait_for_manual_cache_flush(run_number):
-    message = (
-        f"Before repetition {run_number}/{REPETITIONS}, manually flush the cache "
-        "according to the playbook, then press Enter to continue. "
-        "The runner will not execute the flush command. "
-    )
+def flush_wsl_cache(run_number, environ=None):
+    """Flush recoverable WSL2 caches, failing closed without disclosing environment data."""
+    environment = os.environ if environ is None else environ
+    distribution = environment.get("WSL_DISTRO_NAME")
+    if not distribution:
+        raise SystemExit("WSL2 cache flush failed; stopping before measurement.")
     try:
-        input(message)
-    except EOFError as exc:
-        raise SystemExit("An interactive terminal is required for manual cache flushing.") from exc
+        result = subprocess.run(
+            [
+                "wsl.exe", "--distribution", distribution, "--user", "root", "--exec",
+                "sh", "-c", "sync; echo 3 > /proc/sys/vm/drop_caches",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except Exception:
+        raise SystemExit("WSL2 cache flush failed; stopping before measurement.") from None
+    if result.returncode != 0:
+        raise SystemExit("WSL2 cache flush failed; stopping before measurement.")
+    print(f"WSL2 cache flush completed before repetition {run_number}/{REPETITIONS}.")
 
 
 def metric_text(value, digits=6):
@@ -330,6 +449,37 @@ def failed_row(args, run_number, status, timestamp):
         "latency_p99_ms": "", "cpu_throttled_seconds": "", "max_rss_mb": "",
         "disk_spill": "", "status": status,
     }
+
+
+def error_reason_codes(worker_reasons=(), missing_worker_results=False, forced_shutdown=False,
+                       unreaped=False, spill=False, cpu=False, rss=False):
+    """Return stable, non-sensitive reason codes for an error repetition."""
+    allowed = {
+        "measurement_deadline_exceeded", "worker_query_failed", "worker_startup_failed",
+        "worker_readiness_timeout", "worker_result_missing", "worker_forced_shutdown",
+        "worker_unreaped",
+    }
+    reasons = set(worker_reasons).intersection(allowed)
+    if missing_worker_results:
+        reasons.add("worker_result_missing")
+    if forced_shutdown:
+        reasons.add("worker_forced_shutdown")
+    if unreaped:
+        reasons.add("worker_unreaped")
+    if spill is None:
+        reasons.add("spill_evidence_unknown")
+    if cpu is None:
+        reasons.add("cpu_telemetry_missing")
+    if rss is None:
+        reasons.add("rss_telemetry_missing")
+    return tuple(sorted(reasons))
+
+
+def emit_error_diagnostic(status, run_number, reason_codes):
+    if status != "error":
+        return
+    reasons = ",".join(reason_codes) or "error_reason_unavailable"
+    print(f"run={run_number} status=error reason_codes={reasons}", file=sys.stderr)
 
 
 def run_repetition(args, run_number, invocation_id, pipeline, pg_settings, pg_statement, uri, prometheus_url):
@@ -358,15 +508,26 @@ def run_repetition(args, run_number, invocation_id, pipeline, pg_settings, pg_st
     except Exception:
         stop_event.set()
         start_event.set()
-        _, unreaped = stop_workers(workers, COOLDOWN_SECONDS)
+        forced_shutdown, unreaped = stop_workers(workers, COOLDOWN_SECONDS)
+        reasons = error_reason_codes(
+            ["worker_readiness_timeout"], forced_shutdown=forced_shutdown, unreaped=unreaped
+        )
+        emit_error_diagnostic("error", run_number, reasons)
         return failed_row(args, run_number, "error", started_at), None, None, unreaped
 
     startup_errors = [reply[2] for reply in ready if reply[2] != "ok"]
     if startup_errors:
         stop_event.set()
         start_event.set()
-        _, unreaped = stop_workers(workers, COOLDOWN_SECONDS)
-        return failed_row(args, run_number, "oom" if "oom" in startup_errors else "error", started_at), None, None, unreaped
+        forced_shutdown, unreaped = stop_workers(workers, COOLDOWN_SECONDS)
+        status = "oom" if "oom" in startup_errors else "error"
+        reasons = [reply[4] for reply in ready if len(reply) > 4 and reply[4]]
+        reasons = reasons or ["worker_startup_failed"]
+        reasons = error_reason_codes(
+            reasons, forced_shutdown=forced_shutdown, unreaped=unreaped
+        )
+        emit_error_diagnostic(status, run_number, reasons)
+        return failed_row(args, run_number, status, started_at), None, None, unreaped
 
     backend_pids = {reply[3] for reply in ready if reply[3] is not None}
     start_event.set()
@@ -382,21 +543,42 @@ def run_repetition(args, run_number, invocation_id, pipeline, pg_settings, pg_st
     time.sleep(COOLDOWN_SECONDS)
 
     results = []
-    for _ in workers:
-        try:
-            results.append(events.get(timeout=2))
-        except Exception:
-            results.append(("result", -1, 0, [], "error", None))
+    missing_worker_results = False
+    if forced_shutdown or unreaped:
+        # A force-killed multiprocessing.Queue writer can leave a partial frame;
+        # never read that shared queue after a worker failed to shut down cleanly.
+        missing_worker_results = True
+        results = [
+            ("result", -1, 0, [], "error", None, "worker_result_missing")
+            for _ in workers
+        ]
+    else:
+        for _ in workers:
+            try:
+                results.append(events.get(timeout=2))
+            except Exception:
+                missing_worker_results = True
+                results.append(("result", -1, 0, [], "error", None, "worker_result_missing"))
     completed = sum(result[2] for result in results)
     latencies = [latency for result in results for latency in result[3]]
     worker_statuses = [result[4] for result in results]
+    worker_reasons = [result[6] for result in results if len(result) > 6 and result[6]]
+    measured_query_ids = [query_id for result in results if len(result) > 7
+                          for query_id in result[7]]
     if forced_shutdown or unreaped:
         worker_statuses.append("error")
+    if forced_shutdown:
+        worker_reasons.append("worker_forced_shutdown")
+    if unreaped:
+        worker_reasons.append("worker_unreaped")
     status = "oom" if "oom" in worker_statuses else ("error" if "error" in worker_statuses else "ok")
 
     cpu, rss = read_telemetry(prometheus_url, args.engine, args.profile, measure_started)
     if args.engine == "mongodb":
-        spill = mongodb_disk_spill(uri, marker)
+        suffix = PROFILES[args.profile]
+        spill = mongodb_disk_spill(
+            f"mongo-profile-{suffix}", measured_query_ids, measure_started
+        )
     else:
         suffix = PROFILES[args.profile]
         spill = postgresql_disk_spill(f"postgres-profile-{suffix}", backend_pids, measure_started)
@@ -404,6 +586,18 @@ def run_repetition(args, run_number, invocation_id, pipeline, pg_settings, pg_st
         status = "spill"
     elif status == "ok" and (spill is None or cpu is None or rss is None):
         status = "error"
+
+    if status == "error":
+        reasons = error_reason_codes(
+            worker_reasons,
+            missing_worker_results=missing_worker_results,
+            forced_shutdown=forced_shutdown,
+            unreaped=unreaped,
+            spill=spill,
+            cpu=cpu,
+            rss=rss,
+        )
+        emit_error_diagnostic(status, run_number, reasons)
 
     row = {
         "timestamp_epoch": int(measure_started), "engine": args.engine, "profile": args.profile,
@@ -422,19 +616,38 @@ def run_repetition(args, run_number, invocation_id, pipeline, pg_settings, pg_st
 
 def main():
     args = parse_args()
+    existing_keys = set()
+    if getattr(args, "resume", False):
+        errors, _, existing_keys = check_spec.validate_partial_csv(args.csv)
+        if errors:
+            raise SystemExit("Resume CSV validation failed: " + "; ".join(errors))
     pipeline = read_mongodb_pipeline(args.query) if args.engine == "mongodb" else None
     pg_settings, pg_statement = (
         read_postgresql_query(args.query) if args.engine == "postgresql" else ([], None)
     )
-    uri = os.environ.get("MONGODB_URI", "mongodb://127.0.0.1:27017") if args.engine == "mongodb" else os.environ["POSTGRES_DSN"]
-    prometheus_url = os.environ.get("PROMETHEUS_URL", "http://127.0.0.1:9090")
+    uri = (
+        os.environ.get("MONGODB_URI", "mongodb://127.0.0.1:27017")
+        if args.engine == "mongodb"
+        else postgres_dsn_from_env()
+    )
+    prometheus_url = os.environ.get("PROMETHEUS_URL", "http://127.0.0.1:9091")
     invocation_id = uuid.uuid4().hex
     for run_number in range(1, REPETITIONS + 1):
-        wait_for_manual_cache_flush(run_number)
+        key = (
+            args.engine, args.profile, args.query, str(args.concurrency), str(run_number),
+        )
+        if key in existing_keys:
+            print(
+                f"{args.engine} {args.profile} {args.query} concurrency={args.concurrency} "
+                f"run={run_number}: already recorded; skipping"
+            )
+            continue
+        flush_wsl_cache(run_number)
         row, _, _, unreaped = run_repetition(
             args, run_number, invocation_id, pipeline, pg_settings, pg_statement, uri, prometheus_url,
         )
         append_row(args.csv, row)
+        existing_keys.add(key)
         print(f"{args.engine} {args.profile} {args.query} concurrency={args.concurrency} run={run_number}: {row['status']}")
         if unreaped:
             raise SystemExit("A benchmark worker remained alive after termination; stopping this scenario.")

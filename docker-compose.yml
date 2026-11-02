@@ -5,7 +5,12 @@ services:
     image: mongo:9.0.4@sha256:ce91889f87a369d312e50ecbc6c0b7f960e915bc4b69c4f6662402fa7011d242
     platform: linux/amd64
     profiles: [PROFILE_A_BASELINE]
-    command: ["mongod", "--wiredTigerCacheSizeGB", "1"]
+    command: ["mongod", "--config", "/etc/mongodb-benchmark.yml", "--wiredTigerCacheSizeGB", "1"]
+    volumes:
+      - type: bind
+        source: ./docker/mongodb-benchmark.yml
+        target: /etc/mongodb-benchmark.yml
+        read_only: true
     cpus: "4.0"
     mem_limit: 4096m
     mem_swappiness: 0
@@ -16,7 +21,12 @@ services:
     image: mongo:9.0.4@sha256:ce91889f87a369d312e50ecbc6c0b7f960e915bc4b69c4f6662402fa7011d242
     platform: linux/amd64
     profiles: [PROFILE_B_MEDIUM]
-    command: ["mongod", "--wiredTigerCacheSizeGB", "0.5"]
+    command: ["mongod", "--config", "/etc/mongodb-benchmark.yml", "--wiredTigerCacheSizeGB", "0.5"]
+    volumes:
+      - type: bind
+        source: ./docker/mongodb-benchmark.yml
+        target: /etc/mongodb-benchmark.yml
+        read_only: true
     cpus: "2.0"
     mem_limit: 2048m
     mem_swappiness: 0
@@ -27,7 +37,12 @@ services:
     image: mongo:9.0.4@sha256:ce91889f87a369d312e50ecbc6c0b7f960e915bc4b69c4f6662402fa7011d242
     platform: linux/amd64
     profiles: [PROFILE_C_SEVERE]
-    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
+    command: ["mongod", "--config", "/etc/mongodb-benchmark.yml", "--wiredTigerCacheSizeGB", "0.25"]
+    volumes:
+      - type: bind
+        source: ./docker/mongodb-benchmark.yml
+        target: /etc/mongodb-benchmark.yml
+        read_only: true
     cpus: "1.0"
     mem_limit: 1024m
     mem_swappiness: 0
@@ -45,7 +60,7 @@ services:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the process environment}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5434:5432"
 
   postgres-profile-b:
     image: postgres:18.6@sha256:f4b419e350fd98d4a8429603295208976dea4c8fb8326d818d346d3e29f1db6f
@@ -58,7 +73,7 @@ services:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the process environment}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5434:5432"
 
   postgres-profile-c:
     image: postgres:18.6@sha256:f4b419e350fd98d4a8429603295208976dea4c8fb8326d818d346d3e29f1db6f
@@ -71,7 +86,7 @@ services:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the process environment}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5434:5432"
 
   cadvisor:
     image: ghcr.io/google/cadvisor:v0.60.6@sha256:bd7c00644d65e6c9fc2c151cab70d2e86d7fe3e0182cfb9863120ec2e017cf01
@@ -132,7 +147,7 @@ services:
     platform: linux/amd64
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     ports:
-      - "127.0.0.1:9090:9090"
+      - "127.0.0.1:9091:9090"
     configs:
       - source: prometheus-config
         target: /etc/prometheus/prometheus.yml

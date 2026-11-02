@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="620" viewBox="0 0 1000 620" role="img" aria-label="CPU throttling vs throughput">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="500" y="30" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="bold">CPU throttling vs throughput</text>
+<text x="500" y="605" text-anchor="middle" font-family="sans-serif" font-size="14">Throughput (queries/s)</text>
+<text x="20" y="300" text-anchor="middle" font-family="sans-serif" font-size="14" transform="rotate(-90 20 300)">CPU throttling (s)</text>
+<line x1="85" y1="525.00" x2="965" y2="525.00" stroke="#e2e8f0"/>
+<text x="75" y="530.00" text-anchor="end" font-family="sans-serif" font-size="12" fill="#334155">0.00</text>
+<line x1="85" y1="410.00" x2="965" y2="410.00" stroke="#e2e8f0"/>
+<text x="75" y="415.00" text-anchor="end" font-family="sans-serif" font-size="12" fill="#334155">270.15</text>
+<line x1="85" y1="295.00" x2="965" y2="295.00" stroke="#e2e8f0"/>
+<text x="75" y="300.00" text-anchor="end" font-family="sans-serif" font-size="12" fill="#334155">540.30</text>
+<line x1="85" y1="180.00" x2="965" y2="180.00" stroke="#e2e8f0"/>
+<text x="75" y="185.00" text-anchor="end" font-family="sans-serif" font-size="12" fill="#334155">810.45</text>
+<line x1="85" y1="65.00" x2="965" y2="65.00" stroke="#e2e8f0"/>
+<text x="75" y="70.00" text-anchor="end" font-family="sans-serif" font-size="12" fill="#334155">1080.61</text>
+<line x1="85.00" y1="65" x2="85.00" y2="525" stroke="#f1f5f9"/>
+<text x="85.00" y="547" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#334155">0.00</text>
+<line x1="305.00" y1="65" x2="305.00" y2="525" stroke="#f1f5f9"/>
+<text x="305.00" y="547" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#334155">0.12</text>
+<line x1="525.00" y1="65" x2="525.00" y2="525" stroke="#f1f5f9"/>
+<text x="525.00" y="547" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#334155">0.24</text>
+<line x1="745.00" y1="65" x2="745.00" y2="525" stroke="#f1f5f9"/>
+<text x="745.00" y="547" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#334155">0.35</text>
+<line x1="965.00" y1="65" x2="965.00" y2="525" stroke="#f1f5f9"/>
+<text x="965.00" y="547" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#334155">0.47</text>
+<line x1="85" y1="525" x2="965" y2="525" stroke="#475569"/>
+<line x1="85" y1="65" x2="85" y2="525" stroke="#475569"/>
+<circle cx="575.44" cy="525.00" r="4" fill="#2563eb" fill-opacity="0.75"/>
+<circle cx="618.90" cy="525.00" r="4" fill="#2563eb" fill-opacity="0.75"/>
+<circle cx="643.73" cy="525.00" r="4" fill="#2563eb" fill-opacity="0.75"/>
+<circle cx="923.10" cy="86.90" r="4" fill="#2563eb" fill-opacity="0.75"/>
+<circle cx="898.26" cy="88.23" r="4" fill="#2563eb" fill-opacity="0.75"/>
+<circle cx="892.05" cy="101.93" r="4" fill="#2563eb" fill-opacity="0.75"/>
+<circle cx="109.83" cy="94.66" r="4" fill="#2563eb" fill-opacity="0.75"/>
+<circle cx="134.67" cy="87.66" r="4" fill="#2563eb" fill-opacity="0.75"/>
+<circle cx="103.62" cy="116.98" r="4" fill="#2563eb" fill-opacity="0.75"/>
+<circle cx="760" cy="78" r="5" fill="#2563eb"/>
+<text x="772" y="82" font-family="sans-serif" font-size="12">mongodb</text>
+<circle cx="760" cy="100" r="5" fill="#db2777"/>
+<text x="772" y="104" font-family="sans-serif" font-size="12">postgresql</text>
+</svg>

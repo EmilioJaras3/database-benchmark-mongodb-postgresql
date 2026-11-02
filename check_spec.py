@@ -127,10 +127,10 @@ def validate_row(row, line_number, errors):
             errors.append(f"line {line_number}: status spill requires disk_spill=true")
 
 
-def validate_csv(path):
+def _validate_csv(path, require_complete):
     errors = []
     if not path.is_file():
-        return [f"CSV file does not exist or is not a regular file: {path}"], 0
+        return [f"CSV file does not exist or is not a regular file: {path}"], 0, set()
 
     row_count = 0
     seen = set()
@@ -139,7 +139,7 @@ def validate_csv(path):
             reader = csv.reader(stream, strict=True)
             header = next(reader, None)
             if header != list(CSV_FIELDS):
-                return ["CSV header does not exactly match the required schema"], 0
+                return ["CSV header does not exactly match the required schema"], 0, seen
             for line_number, values in enumerate(reader, start=2):
                 row_count += 1
                 if len(values) != len(CSV_FIELDS):
@@ -152,17 +152,28 @@ def validate_csv(path):
                     errors.append(f"line {line_number}: duplicate matrix/repetition key {key}")
                 seen.add(key)
     except (OSError, UnicodeError, csv.Error, StopIteration) as exc:
-        return [f"could not parse CSV: {type(exc).__name__}"], row_count
+        return [f"could not parse CSV: {type(exc).__name__}"], row_count, seen
 
-    if row_count != 108:
-        errors.append(f"expected exactly 108 data rows, found {row_count}")
-    missing = EXPECTED_KEYS - seen
     unexpected = seen - EXPECTED_KEYS
-    if missing:
-        errors.append(f"missing {len(missing)} expected matrix/repetition keys")
     if unexpected:
         errors.append(f"found {len(unexpected)} unsupported matrix/repetition keys")
+    if require_complete:
+        if row_count != 108:
+            errors.append(f"expected exactly 108 data rows, found {row_count}")
+        missing = EXPECTED_KEYS - seen
+        if missing:
+            errors.append(f"missing {len(missing)} expected matrix/repetition keys")
+    return errors, row_count, seen
+
+
+def validate_csv(path):
+    errors, row_count, _ = _validate_csv(path, require_complete=True)
     return errors, row_count
+
+
+def validate_partial_csv(path):
+    """Validate each observed row without requiring the full matrix and return its keys."""
+    return _validate_csv(path, require_complete=False)
 
 
 def main():
