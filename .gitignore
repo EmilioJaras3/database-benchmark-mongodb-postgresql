@@ -1,0 +1,13 @@
+# Generated benchmark dataset
+/dataset/
+*dataset*.json
+*dataset*.jsonl
+*dataset*.ndjson
+
+# Local secrets and credentials
+/.env
+/.env.*
+/credentials/
+*credentials*.json
+*.pem
+*.key

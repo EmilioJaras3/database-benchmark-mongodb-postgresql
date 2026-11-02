@@ -1,0 +1,166 @@
+name: database-benchmark
+
+services:
+  mongo-profile-a:
+    image: mongo:9.0.4@sha256:ce91889f87a369d312e50ecbc6c0b7f960e915bc4b69c4f6662402fa7011d242
+    platform: linux/amd64
+    profiles: [PROFILE_A_BASELINE]
+    command: ["mongod", "--config", "/etc/mongodb-benchmark.yml", "--wiredTigerCacheSizeGB", "1"]
+    volumes:
+      - type: bind
+        source: ./docker/mongodb-benchmark.yml
+        target: /etc/mongodb-benchmark.yml
+        read_only: true
+    cpus: "4.0"
+    mem_limit: 4096m
+    mem_swappiness: 0
+    ports:
+      - "127.0.0.1:27017:27017"
+
+  mongo-profile-b:
+    image: mongo:9.0.4@sha256:ce91889f87a369d312e50ecbc6c0b7f960e915bc4b69c4f6662402fa7011d242
+    platform: linux/amd64
+    profiles: [PROFILE_B_MEDIUM]
+    command: ["mongod", "--config", "/etc/mongodb-benchmark.yml", "--wiredTigerCacheSizeGB", "0.5"]
+    volumes:
+      - type: bind
+        source: ./docker/mongodb-benchmark.yml
+        target: /etc/mongodb-benchmark.yml
+        read_only: true
+    cpus: "2.0"
+    mem_limit: 2048m
+    mem_swappiness: 0
+    ports:
+      - "127.0.0.1:27017:27017"
+
+  mongo-profile-c:
+    image: mongo:9.0.4@sha256:ce91889f87a369d312e50ecbc6c0b7f960e915bc4b69c4f6662402fa7011d242
+    platform: linux/amd64
+    profiles: [PROFILE_C_SEVERE]
+    command: ["mongod", "--config", "/etc/mongodb-benchmark.yml", "--wiredTigerCacheSizeGB", "0.25"]
+    volumes:
+      - type: bind
+        source: ./docker/mongodb-benchmark.yml
+        target: /etc/mongodb-benchmark.yml
+        read_only: true
+    cpus: "1.0"
+    mem_limit: 1024m
+    mem_swappiness: 0
+    ports:
+      - "127.0.0.1:27017:27017"
+
+  postgres-profile-a:
+    image: postgres:18.6@sha256:f4b419e350fd98d4a8429603295208976dea4c8fb8326d818d346d3e29f1db6f
+    platform: linux/amd64
+    profiles: [PROFILE_A_BASELINE]
+    command: ["postgres", "-c", "shared_buffers=1024MB", "-c", "work_mem=4MB", "-c", "log_temp_files=0"]
+    cpus: "4.0"
+    mem_limit: 4096m
+    mem_swappiness: 0
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the process environment}
+    ports:
+      - "127.0.0.1:5434:5432"
+
+  postgres-profile-b:
+    image: postgres:18.6@sha256:f4b419e350fd98d4a8429603295208976dea4c8fb8326d818d346d3e29f1db6f
+    platform: linux/amd64
+    profiles: [PROFILE_B_MEDIUM]
+    command: ["postgres", "-c", "shared_buffers=512MB", "-c", "work_mem=4MB", "-c", "log_temp_files=0"]
+    cpus: "2.0"
+    mem_limit: 2048m
+    mem_swappiness: 0
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the process environment}
+    ports:
+      - "127.0.0.1:5434:5432"
+
+  postgres-profile-c:
+    image: postgres:18.6@sha256:f4b419e350fd98d4a8429603295208976dea4c8fb8326d818d346d3e29f1db6f
+    platform: linux/amd64
+    profiles: [PROFILE_C_SEVERE]
+    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "work_mem=4MB", "-c", "log_temp_files=0"]
+    cpus: "1.0"
+    mem_limit: 1024m
+    mem_swappiness: 0
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the process environment}
+    ports:
+      - "127.0.0.1:5434:5432"
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.60.6@sha256:bd7c00644d65e6c9fc2c151cab70d2e86d7fe3e0182cfb9863120ec2e017cf01
+    platform: linux/amd64
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - type: bind
+        source: /
+        target: /rootfs
+        read_only: true
+      - type: bind
+        source: /var/run
+        target: /var/run
+        read_only: true
+      - type: bind
+        source: /sys
+        target: /sys
+        read_only: true
+      - type: bind
+        source: /var/lib/docker
+        target: /var/lib/docker
+        read_only: true
+      - type: bind
+        source: /dev/disk
+        target: /dev/disk
+        read_only: true
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+
+  node-exporter:
+    image: prom/node-exporter:v1.12.1@sha256:da83fae85603c4e47e6c68369a7d746e2dda683dc35ea2e234b4f171e0d92798
+    platform: linux/amd64
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+    ports:
+      - "127.0.0.1:9100:9100"
+    volumes:
+      - type: bind
+        source: /proc
+        target: /host/proc
+        read_only: true
+      - type: bind
+        source: /sys
+        target: /host/sys
+        read_only: true
+      - type: bind
+        source: /
+        target: /rootfs
+        read_only: true
+
+  prometheus:
+    image: prom/prometheus:v3.15.1@sha256:d445d1806b38f85b5c394a1b87f94113fde0473b45245922c2e8b1bd41fa68ae
+    platform: linux/amd64
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    ports:
+      - "127.0.0.1:9091:9090"
+    configs:
+      - source: prometheus-config
+        target: /etc/prometheus/prometheus.yml
+
+configs:
+  prometheus-config:
+    content: |
+      global:
+        scrape_interval: 1s
+      scrape_configs:
+        - job_name: cadvisor
+          static_configs:
+            - targets: ["cadvisor:8080"]
+        - job_name: node-exporter
+          static_configs:
+            - targets: ["node-exporter:9100"]
