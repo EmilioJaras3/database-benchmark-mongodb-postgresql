@@ -11,3 +11,9 @@
 *credentials*.json
 *.pem
 *.key
+
+# Python caches and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+

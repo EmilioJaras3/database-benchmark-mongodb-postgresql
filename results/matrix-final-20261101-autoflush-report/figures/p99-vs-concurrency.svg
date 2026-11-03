@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="700" viewBox="0 0 1000 700" role="img" aria-label="P99 latency vs concurrency">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="500" y="30" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="bold">P99 latency vs concurrency</text>
+<text x="500" y="680" text-anchor="middle" font-family="sans-serif" font-size="14">Concurrency (workers)</text>
+<text x="20" y="300" text-anchor="middle" font-family="sans-serif" font-size="14" transform="rotate(-90 20 300)">P99 latency (ms)</text>
+<line x1="85" y1="525.00" x2="965" y2="525.00" stroke="#e2e8f0"/>
+<text x="75" y="530.00" text-anchor="end" font-family="sans-serif" font-size="12" fill="#334155">0.00</text>
+<line x1="85" y1="410.00" x2="965" y2="410.00" stroke="#e2e8f0"/>
+<text x="75" y="415.00" text-anchor="end" font-family="sans-serif" font-size="12" fill="#334155">33643.02</text>
+<line x1="85" y1="295.00" x2="965" y2="295.00" stroke="#e2e8f0"/>
+<text x="75" y="300.00" text-anchor="end" font-family="sans-serif" font-size="12" fill="#334155">67286.03</text>
+<line x1="85" y1="180.00" x2="965" y2="180.00" stroke="#e2e8f0"/>
+<text x="75" y="185.00" text-anchor="end" font-family="sans-serif" font-size="12" fill="#334155">100929.05</text>
+<line x1="85" y1="65.00" x2="965" y2="65.00" stroke="#e2e8f0"/>
+<text x="75" y="70.00" text-anchor="end" font-family="sans-serif" font-size="12" fill="#334155">134572.06</text>
+<line x1="85.00" y1="65" x2="85.00" y2="525" stroke="#f1f5f9"/>
+<text x="85.00" y="547" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#334155">1</text>
+<line x1="525.00" y1="65" x2="525.00" y2="525" stroke="#f1f5f9"/>
+<text x="525.00" y="547" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#334155">10</text>
+<line x1="965.00" y1="65" x2="965.00" y2="525" stroke="#f1f5f9"/>
+<text x="965.00" y="547" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#334155">50</text>
+<line x1="85" y1="525" x2="965" y2="525" stroke="#475569"/>
+<line x1="85" y1="65" x2="85" y2="525" stroke="#475569"/>
+<circle cx="85.00" cy="505.41" r="4" fill="#2563eb"/>
+<circle cx="525.00" cy="429.15" r="4" fill="#2563eb"/>
+<circle cx="965.00" cy="86.90" r="4" fill="#2563eb"/>
+<polyline points="85.00,505.41 525.00,429.15 965.00,86.90" fill="none" stroke="#2563eb" stroke-width="2"/>
+<circle cx="85.00" cy="519.27" r="4" fill="#dc2626"/>
+<circle cx="85.00" cy="490.59" r="4" fill="#16a34a"/>
+<circle cx="525.00" cy="323.50" r="4" fill="#16a34a"/>
+<polyline points="85.00,490.59 525.00,323.50" fill="none" stroke="#16a34a" stroke-width="2"/>
+<circle cx="85.00" cy="512.24" r="4" fill="#9333ea"/>
+<circle cx="525.00" cy="497.08" r="4" fill="#9333ea"/>
+<circle cx="965.00" cy="352.28" r="4" fill="#9333ea"/>
+<polyline points="85.00,512.24 525.00,497.08 965.00,352.28" fill="none" stroke="#9333ea" stroke-width="2"/>
+<circle cx="85.00" cy="499.15" r="4" fill="#ea580c"/>
+<circle cx="85.00" cy="519.64" r="4" fill="#0891b2"/>
+<circle cx="525.00" cy="477.45" r="4" fill="#0891b2"/>
+<circle cx="965.00" cy="170.14" r="4" fill="#0891b2"/>
+<polyline points="85.00,519.64 525.00,477.45 965.00,170.14" fill="none" stroke="#0891b2" stroke-width="2"/>
+<line x1="95" y1="551" x2="117" y2="551" stroke="#2563eb" stroke-width="3"/>
+<text x="123" y="555" font-family="sans-serif" font-size="11">mongodb/PROFILE_A_BASELINE/Q1</text>
+<line x1="395" y1="551" x2="417" y2="551" stroke="#dc2626" stroke-width="3"/>
+<text x="423" y="555" font-family="sans-serif" font-size="11">mongodb/PROFILE_A_BASELINE/Q2</text>
+<line x1="695" y1="551" x2="717" y2="551" stroke="#16a34a" stroke-width="3"/>
+<text x="723" y="555" font-family="sans-serif" font-size="11">mongodb/PROFILE_B_MEDIUM/Q1</text>
+<line x1="95" y1="569" x2="117" y2="569" stroke="#9333ea" stroke-width="3"/>
+<text x="123" y="573" font-family="sans-serif" font-size="11">mongodb/PROFILE_B_MEDIUM/Q2</text>
+<line x1="395" y1="569" x2="417" y2="569" stroke="#ea580c" stroke-width="3"/>
+<text x="423" y="573" font-family="sans-serif" font-size="11">mongodb/PROFILE_C_SEVERE/Q1</text>
+<line x1="695" y1="569" x2="717" y2="569" stroke="#0891b2" stroke-width="3"/>
+<text x="723" y="573" font-family="sans-serif" font-size="11">mongodb/PROFILE_C_SEVERE/Q2</text>
+</svg>
